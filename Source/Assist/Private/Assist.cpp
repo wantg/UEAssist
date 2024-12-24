@@ -59,15 +59,7 @@ void FAssistModule::RegisterMenus() {
             INVTEXT("Reload Project"),
             INVTEXT("No tooltip for Reload Project"),
             FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.ReloadProject"),
-            FExecuteAction::CreateLambda([]() {
-                FText DialogText              = FText::Format(LOCTEXT("PluginButtonDialogText", "Reload {0} Project ?"), FText::FromString(FApp::GetProjectName()));
-                EAppReturnType::Type Decision = FMessageDialog::Open(EAppMsgType::OkCancel, DialogText);
-                if (Decision == EAppReturnType::Ok) {
-                    FUnrealEdMisc::Get().RestartEditor(false);
-                    // FText OutFailReason;
-                    // GameProjectUtils::OpenProject(FPaths::GetProjectFilePath(), OutFailReason);
-                }
-            })));
+            FExecuteAction::CreateRaw(this, &FAssistModule::ReloadProject)));
 
         // Section Language
         FToolMenuSection& SectionLanguage = AssistMenu->AddSection("Language", LOCTEXT("Label", "Language"));
@@ -76,18 +68,14 @@ void FAssistModule::RegisterMenus() {
             INVTEXT("en"),
             INVTEXT("Set Language to en"),
             FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.SetLanguageToEn"),
-            FExecuteAction::CreateLambda([]() {
-                UKismetInternationalizationLibrary::SetCurrentLanguage("en");
-            })));
+            FExecuteAction::CreateRaw(this, &FAssistModule::SetCurrentLanguage, FString("en"))));
 
         SectionLanguage.AddEntry(FToolMenuEntry::InitMenuEntry(
             "SetLanguageToZhHans",
             INVTEXT("zh-Hans"),
             INVTEXT("Set Language to zh-Hans"),
             FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.SetLanguageToZhHans"),
-            FExecuteAction::CreateLambda([]() {
-                UKismetInternationalizationLibrary::SetCurrentLanguage("zh-hans");
-            })));
+            FExecuteAction::CreateRaw(this, &FAssistModule::SetCurrentLanguage, FString("zh-hans"))));
 
         TArray<FString> SeparatedStrings;
         MenuModule.ParseIntoArray(SeparatedStrings, TEXT("."), false);
@@ -101,6 +89,20 @@ void FAssistModule::RegisterMenus() {
             LOCTEXT("Label", "Assist"), // InLabel
             LOCTEXT("ToolTip", "Some Useful tools"));
     }
+}
+
+void FAssistModule::ReloadProject() {
+    FText DialogText              = FText::Format(LOCTEXT("PluginButtonDialogText", "Reload {0} Project ?"), FText::FromString(FApp::GetProjectName()));
+    EAppReturnType::Type Decision = FMessageDialog::Open(EAppMsgType::OkCancel, DialogText);
+    if (Decision == EAppReturnType::Ok) {
+        FUnrealEdMisc::Get().RestartEditor(false);
+        // FText OutFailReason;
+        // GameProjectUtils::OpenProject(FPaths::GetProjectFilePath(), OutFailReason);
+    }
+}
+
+void FAssistModule::SetCurrentLanguage(const FString Language) {
+    UKismetInternationalizationLibrary::SetCurrentLanguage(Language);
 }
 
 #undef LOCTEXT_NAMESPACE
