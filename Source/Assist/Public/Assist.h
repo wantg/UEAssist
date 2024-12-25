@@ -15,5 +15,6 @@ class FAssistModule : public IModuleInterface {
     FAssistConfig AssistConfig;
 
     void ReloadProject();
+    void ReloadAsset();
     void SetCurrentLanguage(const FString Language);
 };

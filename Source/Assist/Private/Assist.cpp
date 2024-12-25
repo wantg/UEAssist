@@ -3,6 +3,7 @@
 #include "Serialization/JsonSerializer.h"
 #include "JsonObjectConverter.h"
 #include "Kismet/KismetInternationalizationLibrary.h"
+#include "FileHelpers.h"
 #include "AssistStyle.h"
 
 #define LOCTEXT_NAMESPACE "FAssistModule"
@@ -61,6 +62,21 @@ void FAssistModule::RegisterMenus() {
             FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.ReloadProject"),
             FExecuteAction::CreateRaw(this, &FAssistModule::ReloadProject)));
 
+        // Section Asset
+        FToolMenuSection& SectionAsset = AssistMenu->AddSection("Asset", LOCTEXT("Label", "Asset"));
+        TArray<FString> MenuModuleArray;
+        MenuModule.ParseIntoArray(MenuModuleArray, TEXT("."));
+        FString AssetType = MenuModuleArray.Last();
+        if (AssetType.EndsWith("Editor")) {
+            AssetType = AssetType.LeftChop(6);
+        }
+        SectionAsset.AddEntry(FToolMenuEntry::InitMenuEntry(
+            "ReloadAsset",
+            INVTEXT("Reload " + AssetType),
+            INVTEXT("No tooltip for Reload " + AssetType),
+            FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.ReloadProject"),
+            FExecuteAction::CreateRaw(this, &FAssistModule::ReloadAsset)));
+
         // Section Language
         FToolMenuSection& SectionLanguage = AssistMenu->AddSection("Language", LOCTEXT("Label", "Language"));
         SectionLanguage.AddEntry(FToolMenuEntry::InitMenuEntry(
@@ -98,6 +114,48 @@ void FAssistModule::ReloadProject() {
         FUnrealEdMisc::Get().RestartEditor(false);
         // FText OutFailReason;
         // GameProjectUtils::OpenProject(FPaths::GetProjectFilePath(), OutFailReason);
+    }
+}
+
+void FAssistModule::ReloadAsset() {
+    UAssetEditorSubsystem* AssetEditorSubsystem = GEditor ? GEditor->GetEditorSubsystem<UAssetEditorSubsystem>() : nullptr;
+    if (AssetEditorSubsystem) {
+        UPackage* AssetPackage = nullptr;
+
+        TArray<UObject*> Assets = AssetEditorSubsystem->GetAllEditedAssets();
+        UE_LOG(LogTemp, Warning, TEXT("%s Assets.Num %d"), *FString(__FUNCTION__), Assets.Num());
+        for (auto& Asset : Assets) {
+            IAssetEditorInstance* AssetEditor = AssetEditorSubsystem->FindEditorForAsset(Asset, false);
+            // FAssetEditorToolkit* Editor       = static_cast<FAssetEditorToolkit*>(AssetEditor);
+            TSharedPtr<SDockTab> Tab = AssetEditor->GetAssociatedTabManager()->GetOwnerTab();
+            if (Tab->IsForeground()) {
+                FString ClassName;
+                FString PackageName;
+                FString ObjectName;
+                FString SubObjectName;
+                FPackageName::SplitFullObjectPath(Asset->GetPathName(), ClassName, PackageName, ObjectName, SubObjectName);
+                AssetPackage = CreatePackage(*PackageName);
+                break;
+            }
+        }
+
+        if (!AssetPackage) {
+            if (UWorld* World = GEditor->GetEditorWorldContext().World()) {
+                FString ClassName;
+                FString PackageName;
+                FString ObjectName;
+                FString SubObjectName;
+                FPackageName::SplitFullObjectPath(World->GetPathName(), ClassName, PackageName, ObjectName, SubObjectName);
+                AssetPackage = CreatePackage(*PackageName);
+            }
+        }
+
+        if (AssetPackage) {
+            TArray<UPackage*> PackagesToReload = {AssetPackage};
+            bool AnyPackagesReloaded           = false;
+            FText ErrorMessage;
+            UEditorLoadingAndSavingUtils::ReloadPackages(PackagesToReload, AnyPackagesReloaded, ErrorMessage, EReloadPackagesInteractionMode::Interactive);
+        }
     }
 }
 
