@@ -120,15 +120,13 @@ void FAssistModule::ReloadProject() {
 void FAssistModule::ReloadAsset() {
     UAssetEditorSubsystem* AssetEditorSubsystem = GEditor ? GEditor->GetEditorSubsystem<UAssetEditorSubsystem>() : nullptr;
     if (AssetEditorSubsystem) {
-        UPackage* AssetPackage = nullptr;
-
+        UPackage* AssetPackage  = nullptr;
         TArray<UObject*> Assets = AssetEditorSubsystem->GetAllEditedAssets();
-        UE_LOG(LogTemp, Warning, TEXT("%s Assets.Num %d"), *FString(__FUNCTION__), Assets.Num());
         for (auto& Asset : Assets) {
             IAssetEditorInstance* AssetEditor = AssetEditorSubsystem->FindEditorForAsset(Asset, false);
             // FAssetEditorToolkit* Editor       = static_cast<FAssetEditorToolkit*>(AssetEditor);
             TSharedPtr<SDockTab> Tab = AssetEditor->GetAssociatedTabManager()->GetOwnerTab();
-            if (Tab->IsForeground()) {
+            if (Tab->GetParentWindow()->IsActive() && Tab->IsForeground()) {
                 FString ClassName;
                 FString PackageName;
                 FString ObjectName;
@@ -151,6 +149,7 @@ void FAssistModule::ReloadAsset() {
         }
 
         if (AssetPackage) {
+            UE_LOG(LogTemp, Warning, TEXT("Reload %s"), *AssetPackage->GetPathName());
             TArray<UPackage*> PackagesToReload = {AssetPackage};
             bool AnyPackagesReloaded           = false;
             FText ErrorMessage;
