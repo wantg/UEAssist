@@ -64,6 +64,7 @@
     "AssetEditor.NiagaraEditor",
     "AssetEditor.ObjectMixerEditor",
     "AssetEditor.OverlayEditor",
+    "AssetEditor.PCGEditor",
     "AssetEditor.Paper2DEditor",
     "AssetEditor.PhysicsAssetEditor",
     "AssetEditor.ProceduralMeshComponentEditor",
