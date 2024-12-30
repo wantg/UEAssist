@@ -154,6 +154,9 @@ void FAssistModule::ReloadAsset() {
             bool AnyPackagesReloaded           = false;
             FText ErrorMessage;
             UEditorLoadingAndSavingUtils::ReloadPackages(PackagesToReload, AnyPackagesReloaded, ErrorMessage, EReloadPackagesInteractionMode::Interactive);
+            if (ErrorMessage.ToString().Len() > 0) {
+                FMessageDialog::Open(EAppMsgType::Ok, ErrorMessage);
+            }
         }
     }
 }
