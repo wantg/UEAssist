@@ -127,24 +127,14 @@ void FAssistModule::ReloadAsset() {
             // FAssetEditorToolkit* Editor       = static_cast<FAssetEditorToolkit*>(AssetEditor);
             TSharedPtr<SDockTab> Tab = AssetEditor->GetAssociatedTabManager()->GetOwnerTab();
             if (Tab->GetParentWindow()->IsActive() && Tab->IsForeground()) {
-                FString ClassName;
-                FString PackageName;
-                FString ObjectName;
-                FString SubObjectName;
-                FPackageName::SplitFullObjectPath(Asset->GetPathName(), ClassName, PackageName, ObjectName, SubObjectName);
-                AssetPackage = CreatePackage(*PackageName);
+                AssetPackage = Asset->GetPackage();
                 break;
             }
         }
 
         if (!AssetPackage) {
             if (UWorld* World = GEditor->GetEditorWorldContext().World()) {
-                FString ClassName;
-                FString PackageName;
-                FString ObjectName;
-                FString SubObjectName;
-                FPackageName::SplitFullObjectPath(World->GetPathName(), ClassName, PackageName, ObjectName, SubObjectName);
-                AssetPackage = CreatePackage(*PackageName);
+                AssetPackage = World->GetPackage();
             }
         }
 
