@@ -1,0 +1,58 @@
+{
+	"UnrealEd_Layout_v1.5": {
+		"Type": "Layout",
+		"Name": "UnrealEd_Layout_v1.5",
+		"PrimaryAreaIndex": 0,
+		"Areas": [
+			{
+				"SizeCoefficient": 1,
+				"Type": "Area",
+				"Orientation": "Orient_Horizontal",
+				"WindowPlacement": "Placement_NoWindow",
+				"Nodes": [
+					{
+						"SizeCoefficient": 2,
+						"Type": "Stack",
+						"HideTabWell": false,
+						"ForegroundTab": "LevelEditor",
+						"Tabs": [
+							{
+								"TabId": "LevelEditor",
+								"TabState": "OpenedTab"
+							},
+							{
+								"TabId": "DockedToolkit",
+								"TabState": "ClosedTab"
+							}
+						]
+					}
+				]
+			},
+			{
+				"SizeCoefficient": 1,
+				"Type": "Area",
+				"Orientation": "Orient_Horizontal",
+				"WindowPlacement": "Placement_Specified",
+				"WindowPosition_X": 0,
+				"WindowPosition_Y": 0,
+				"WindowSize_X": 600,
+				"WindowSize_Y": 1680,
+				"bIsMaximized": false,
+				"Nodes": [
+					{
+						"SizeCoefficient": 1,
+						"Type": "Stack",
+						"HideTabWell": false,
+						"ForegroundTab": "ContentBrowserTab1",
+						"Tabs": [
+							{
+								"TabId": "ContentBrowserTab1",
+								"TabState": "OpenedTab"
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}

@@ -4,6 +4,8 @@
 #include "JsonObjectConverter.h"
 #include "Kismet/KismetInternationalizationLibrary.h"
 #include "FileHelpers.h"
+#include "UnrealEdGlobals.h"
+#include "HAL/PlatformApplicationMisc.h"
 #include "AssistStyle.h"
 
 #define LOCTEXT_NAMESPACE "FAssistModule"
@@ -62,6 +64,15 @@ void FAssistModule::RegisterMenus() {
             FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.ReloadProject"),
             FExecuteAction::CreateRaw(this, &FAssistModule::ReloadProject)));
 
+        // Section Layout
+        FToolMenuSection& SectionLayout = AssistMenu->AddSection("Layout", LOCTEXT("Label", "Layout"));
+        SectionLayout.AddEntry(FToolMenuEntry::InitMenuEntry(
+            "SetHorizontalLayout",
+            INVTEXT("Set Horizontal Layout"),
+            INVTEXT("No tooltip for Set Horizontal Layout"),
+            FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.SetHorizontalLayout"),
+            FExecuteAction::CreateRaw(this, &FAssistModule::SetHorizontalLayout)));
+
         // Section Asset
         FToolMenuSection& SectionAsset = AssistMenu->AddSection("Asset", LOCTEXT("Label", "Asset"));
         TArray<FString> MenuModuleArray;
@@ -115,6 +126,38 @@ void FAssistModule::ReloadProject() {
         // FText OutFailReason;
         // GameProjectUtils::OpenProject(FPaths::GetProjectFilePath(), OutFailReason);
     }
+}
+
+void FAssistModule::SetHorizontalLayout() {
+    float LeftPanelWidth  = 740.0f;
+    float LeftPanelOffset = 4.0f;
+    float TaskBarHeight   = 60.0f;
+    // FDisplayMetrics DisplayMetrics;
+    // FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
+    // const float DisplayWidth  = DisplayMetrics.PrimaryDisplayWidth;
+    // const float DisplayHeight = DisplayMetrics.PrimaryDisplayHeight;
+
+    FDisplayMetrics DisplayMetrics;
+    FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+    const float DisplayWidth  = DisplayMetrics.PrimaryDisplayWidth;
+    const float DisplayHeight = DisplayMetrics.PrimaryDisplayHeight;
+    const float DPIScale      = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(DisplayMetrics.PrimaryDisplayWorkAreaRect.Left, DisplayMetrics.PrimaryDisplayWorkAreaRect.Top);
+
+    FString WindowsLocalAppData        = FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA"));
+    FString EditorLayoutConfigFilepath = FPaths::Combine(WindowsLocalAppData, "UnrealEngine/Editor/EditorLayout.json");
+    if (TSharedPtr<IPlugin> ThisPlugin = IPluginManager::Get().FindPlugin("Assist")) {
+        const FString& ResourceFilePath = ThisPlugin->GetBaseDir() / TEXT("Resources/DefaultEditorLayout.json");
+        FString EditorLayoutContent;
+        FFileHelper::LoadFileToString(EditorLayoutContent, *ResourceFilePath);
+        EditorLayoutContent = EditorLayoutContent.Replace(TEXT("\"WindowSize_X\": 600"), *FString::Printf(TEXT("\"WindowSize_X\": %f"), (LeftPanelWidth / DPIScale) - LeftPanelOffset));
+        EditorLayoutContent = EditorLayoutContent.Replace(TEXT("\"WindowSize_Y\": 1680"), *FString::Printf(TEXT("\"WindowSize_Y\": %f"), ((DisplayHeight - TaskBarHeight) / DPIScale) - LeftPanelOffset));
+        FFileHelper::SaveStringToFile(EditorLayoutContent, *EditorLayoutConfigFilepath);
+    }
+
+    EditorReinit();
+
+    TSharedPtr<SWindow> RootWindow = FGlobalTabmanager::Get()->GetRootWindow();
+    RootWindow->ReshapeWindow(FVector2D(LeftPanelWidth, 0.0f), FVector2D(DisplayWidth - LeftPanelWidth, DisplayHeight - TaskBarHeight));
 }
 
 void FAssistModule::ReloadAsset() {

@@ -43,6 +43,7 @@ public class Assist : ModuleRules
 				"Json",
 				"JsonUtilities",
 				"UnrealEd",
+				"ApplicationCore",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

@@ -36,6 +36,7 @@ TSharedRef<FSlateStyleSet> FAssistStyle::Create() {
     Style->SetContentRoot(IPluginManager::Get().FindPlugin("Assist")->GetBaseDir() / TEXT("Resources"));
 
     Style->Set("Assist.ReloadProject", new IMAGE_BRUSH_SVG(TEXT("ReloadProjectButtonIcon"), Icon20x20));
+    Style->Set("Assist.SetHorizontalLayout", new IMAGE_BRUSH(TEXT("SetHorizontalLayout"), Icon20x20));
     Style->Set("Assist.SetLanguageToEn", new IMAGE_BRUSH(TEXT("SetLanguageButtonUsa"), Icon20x20));
     Style->Set("Assist.SetLanguageToZhHans", new IMAGE_BRUSH(TEXT("SetLanguageButtonChina"), Icon20x20));
 
