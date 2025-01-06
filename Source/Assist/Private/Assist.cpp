@@ -6,6 +6,8 @@
 #include "FileHelpers.h"
 #include "UnrealEdGlobals.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "SAssetView.h"
+#include "Settings/ContentBrowserSettings.h"
 #include "AssistStyle.h"
 
 #define LOCTEXT_NAMESPACE "FAssistModule"
@@ -47,13 +49,25 @@ void FAssistModule::init() {
 }
 
 void FAssistModule::RegisterMenus() {
+    UToolMenus* ToolMenus = UToolMenus::Get();
     for (auto& MenuModule : AssistConfig.SupportedEditors) {
+        FString MainMenuName       = MenuModule + ".MainMenu";
         FString AssistMenuName     = "AssistMenu";
-        FString MainMenuName       = FString(MenuModule).Append(".MainMenu");
-        FString AssistMenuFullName = FString(MainMenuName).Append(".").Append(AssistMenuName);
+        FString AssistMenuFullName = MainMenuName + "." + AssistMenuName;
+        UToolMenu* AssistMenu      = ToolMenus->RegisterMenu(FName(AssistMenuFullName));
 
-        UToolMenus* ToolMenus = UToolMenus::Get();
-        UToolMenu* AssistMenu = ToolMenus->RegisterMenu(FName(AssistMenuFullName));
+        // AddSubMenu
+        TArray<FString> SeparatedStrings;
+        MenuModule.ParseIntoArray(SeparatedStrings, TEXT("."), false);
+        FString AssistMenuLabel = SeparatedStrings[SeparatedStrings.Num() - 1];
+
+        UToolMenu* MenuBar = ToolMenus->ExtendMenu(FName(MainMenuName));
+        MenuBar->AddSubMenu(
+            "",                         // InOwner
+            "",                         // SectionName
+            FName(AssistMenuName),      // InName
+            LOCTEXT("Label", "Assist"), // InLabel
+            LOCTEXT("ToolTip", "Some Useful tools"));
 
         // Section Project
         FToolMenuSection& SectionProject = AssistMenu->AddSection("Project", LOCTEXT("Label", "Project"));
@@ -63,15 +77,6 @@ void FAssistModule::RegisterMenus() {
             INVTEXT("No tooltip for Reload Project"),
             FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.ReloadProject"),
             FExecuteAction::CreateRaw(this, &FAssistModule::ReloadProject)));
-
-        // Section Layout
-        FToolMenuSection& SectionLayout = AssistMenu->AddSection("Layout", LOCTEXT("Label", "Layout"));
-        SectionLayout.AddEntry(FToolMenuEntry::InitMenuEntry(
-            "SetHorizontalLayout",
-            INVTEXT("Set Horizontal Layout"),
-            INVTEXT("No tooltip for Set Horizontal Layout"),
-            FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.SetHorizontalLayout"),
-            FExecuteAction::CreateRaw(this, &FAssistModule::SetHorizontalLayout)));
 
         // Section Asset
         FToolMenuSection& SectionAsset = AssistMenu->AddSection("Asset", LOCTEXT("Label", "Asset"));
@@ -86,7 +91,23 @@ void FAssistModule::RegisterMenus() {
             INVTEXT("Reload " + AssetType),
             INVTEXT("No tooltip for Reload " + AssetType),
             FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.ReloadProject"),
-            FExecuteAction::CreateRaw(this, &FAssistModule::ReloadAsset)));
+            FExecuteAction::CreateRaw(this, &FAssistModule::ReloadAsset, AssetType)));
+
+        // Section Layout
+        FToolMenuSection& SectionLayout = AssistMenu->AddSection("Layout", LOCTEXT("Label", "Layout"));
+        SectionLayout.AddEntry(FToolMenuEntry::InitMenuEntry(
+            "SetHorizontalLayout",
+            INVTEXT("Set Horizontal Layout"),
+            INVTEXT("No tooltip for Set Horizontal Layout"),
+            FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.SetHorizontalLayout"),
+            FExecuteAction::CreateRaw(this, &FAssistModule::SetLayout, true)));
+
+        SectionLayout.AddEntry(FToolMenuEntry::InitMenuEntry(
+            "SetVerticalLayout",
+            INVTEXT("Set Vertical Layout"),
+            INVTEXT("No tooltip for Set Vertical Layout"),
+            FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.SetVerticalLayout"),
+            FExecuteAction::CreateRaw(this, &FAssistModule::SetLayout, false)));
 
         // Section Language
         FToolMenuSection& SectionLanguage = AssistMenu->AddSection("Language", LOCTEXT("Label", "Language"));
@@ -103,18 +124,6 @@ void FAssistModule::RegisterMenus() {
             INVTEXT("Set Language to zh-Hans"),
             FSlateIcon(FAssistStyle::GetStyleSetName(), "Assist.SetLanguageToZhHans"),
             FExecuteAction::CreateRaw(this, &FAssistModule::SetCurrentLanguage, FString("zh-hans"))));
-
-        TArray<FString> SeparatedStrings;
-        MenuModule.ParseIntoArray(SeparatedStrings, TEXT("."), false);
-        FString AssistMenuLabel = SeparatedStrings[SeparatedStrings.Num() - 1];
-
-        UToolMenu* MenuBar = ToolMenus->ExtendMenu(FName(MainMenuName));
-        MenuBar->AddSubMenu(
-            "",                         // InOwner
-            "",                         // SectionName
-            FName(AssistMenuName),      // InName
-            LOCTEXT("Label", "Assist"), // InLabel
-            LOCTEXT("ToolTip", "Some Useful tools"));
     }
 }
 
@@ -128,10 +137,51 @@ void FAssistModule::ReloadProject() {
     }
 }
 
-void FAssistModule::SetHorizontalLayout() {
-    float LeftPanelWidth  = 740.0f;
-    float LeftPanelOffset = 4.0f;
-    float TaskBarHeight   = 60.0f;
+void FAssistModule::ReloadAsset(const FString AssetType) {
+    UPackage* AssetPackage = nullptr;
+    if (AssetType == "Level") {
+        if (UWorld* World = GEditor->GetEditorWorldContext().World()) {
+            AssetPackage = World->GetPackage();
+        }
+    } else {
+        UAssetEditorSubsystem* AssetEditorSubsystem = GEditor ? GEditor->GetEditorSubsystem<UAssetEditorSubsystem>() : nullptr;
+        if (AssetEditorSubsystem) {
+            TArray<UObject*> Assets = AssetEditorSubsystem->GetAllEditedAssets();
+            for (auto& Asset : Assets) {
+                IAssetEditorInstance* AssetEditor = AssetEditorSubsystem->FindEditorForAsset(Asset, false);
+                // FAssetEditorToolkit* Editor       = static_cast<FAssetEditorToolkit*>(AssetEditor);
+                TSharedPtr<SDockTab> Tab = AssetEditor->GetAssociatedTabManager()->GetOwnerTab();
+                if (Tab->GetParentWindow()->IsActive() && Tab->IsForeground()) {
+                    AssetPackage = Asset->GetPackage();
+                    break;
+                }
+            }
+        }
+    }
+
+    if (AssetPackage) {
+        UE_LOG(LogTemp, Warning, TEXT("Reload %s"), *AssetPackage->GetPathName());
+        TArray<UPackage*> PackagesToReload = {AssetPackage};
+        bool AnyPackagesReloaded           = false;
+        FText ErrorMessage;
+        UEditorLoadingAndSavingUtils::ReloadPackages(PackagesToReload, AnyPackagesReloaded, ErrorMessage, EReloadPackagesInteractionMode::Interactive);
+        if (ErrorMessage.ToString().Len() > 0) {
+            FMessageDialog::Open(EAppMsgType::Ok, ErrorMessage);
+        }
+    }
+}
+
+void FAssistModule::SetLayout(const bool IsHorizontal) {
+    // GConfig->SetFloat(TEXT("ContentBrowser"), TEXT("ContentBrowserTab1.VerticalSplitter.SlotSize0"), 0.2f, GEditorPerProjectIni);
+    // GConfig->SetFloat(TEXT("ContentBrowser"), TEXT("ContentBrowserTab1.VerticalSplitter.SlotSize1"), 0.8f, GEditorPerProjectIni);
+    // GConfig->SetInt(TEXT("ContentBrowser"), TEXT("ContentBrowserTab1.CurrentViewType"), 0, GEditorPerProjectIni);
+    // GConfig->SetInt(TEXT("ContentBrowser"), TEXT("ContentBrowserTab1.ThumbnailSize"), 1, GEditorPerProjectIni);
+    // GConfig->Flush(false, GEditorPerProjectIni);
+
+    float LeftPanelWidth    = 740.0f;
+    float BottomPanelHeight = 600.0f;
+    float LeftPanelOffset   = 4.0f;
+    float TaskBarHeight     = 60.0f;
     // FDisplayMetrics DisplayMetrics;
     // FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
     // const float DisplayWidth  = DisplayMetrics.PrimaryDisplayWidth;
@@ -139,63 +189,70 @@ void FAssistModule::SetHorizontalLayout() {
 
     FDisplayMetrics DisplayMetrics;
     FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
-    const float DisplayWidth  = DisplayMetrics.PrimaryDisplayWidth;
-    const float DisplayHeight = DisplayMetrics.PrimaryDisplayHeight;
-    const float DPIScale      = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(DisplayMetrics.PrimaryDisplayWorkAreaRect.Left, DisplayMetrics.PrimaryDisplayWorkAreaRect.Top);
+    const float DisplayWidth     = DisplayMetrics.PrimaryDisplayWidth;
+    const float DisplayHeight    = DisplayMetrics.PrimaryDisplayHeight;
+    const float DPIScale         = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(DisplayMetrics.PrimaryDisplayWorkAreaRect.Left, DisplayMetrics.PrimaryDisplayWorkAreaRect.Top);
+    float AvailableDisplayHeight = DisplayHeight - TaskBarHeight;
 
-    FString WindowsLocalAppData        = FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA"));
-    FString EditorLayoutConfigFilepath = FPaths::Combine(WindowsLocalAppData, "UnrealEngine/Editor/EditorLayout.json");
-    if (TSharedPtr<IPlugin> ThisPlugin = IPluginManager::Get().FindPlugin("Assist")) {
-        const FString& ResourceFilePath = ThisPlugin->GetBaseDir() / TEXT("Resources/DefaultEditorLayout.json");
-        FString EditorLayoutContent;
-        FFileHelper::LoadFileToString(EditorLayoutContent, *ResourceFilePath);
-        EditorLayoutContent = EditorLayoutContent.Replace(TEXT("\"WindowSize_X\": 600"), *FString::Printf(TEXT("\"WindowSize_X\": %f"), (LeftPanelWidth / DPIScale) - LeftPanelOffset));
-        EditorLayoutContent = EditorLayoutContent.Replace(TEXT("\"WindowSize_Y\": 1680"), *FString::Printf(TEXT("\"WindowSize_Y\": %f"), ((DisplayHeight - TaskBarHeight) / DPIScale) - LeftPanelOffset));
-        FFileHelper::SaveStringToFile(EditorLayoutContent, *EditorLayoutConfigFilepath);
-    }
+    const TSharedRef<FGlobalTabmanager> GlobalTabmanager = FGlobalTabmanager::Get();
+
+    // Set Layout
+    TSharedRef<FTabManager::FLayout> PersistLayout = GlobalTabmanager->PersistLayout();
+    TSharedRef<FTabManager::FArea> NewArea         = GlobalTabmanager->NewArea(0.0f, 0.0f);
+    TSharedRef<FTabManager::FStack> NewStack       = GlobalTabmanager->NewStack();
+    NewArea->SetWindow(FVector2D::Zero(), false);
+    NewArea->Split(NewStack);
+    NewStack->SetForegroundTab(FTabId{"ContentBrowserTab1"});
+    NewStack->AddTab("ContentBrowserTab1", ETabState::OpenedTab);
+    PersistLayout->AddArea(NewArea);
+    FLayoutSaveRestore::SaveToConfig("EditorLayout", PersistLayout);
 
     EditorReinit();
 
-    TSharedPtr<SWindow> RootWindow = FGlobalTabmanager::Get()->GetRootWindow();
-    RootWindow->ReshapeWindow(FVector2D(LeftPanelWidth, 0.0f), FVector2D(DisplayWidth - LeftPanelWidth, DisplayHeight - TaskBarHeight));
-}
+    // Reshape Root Window
+    TSharedPtr<SWindow> RootWindow = GlobalTabmanager->GetRootWindow();
+    FVector2D RootWindowPosition   = IsHorizontal ? FVector2D(LeftPanelWidth, 0.0f) : FVector2D::Zero();
+    FVector2D RootWindowSize       = IsHorizontal ? FVector2D(DisplayWidth - LeftPanelWidth, AvailableDisplayHeight) : FVector2D(DisplayWidth, AvailableDisplayHeight - BottomPanelHeight);
+    RootWindow->ReshapeWindow(RootWindowPosition, RootWindowSize);
 
-void FAssistModule::ReloadAsset() {
-    UAssetEditorSubsystem* AssetEditorSubsystem = GEditor ? GEditor->GetEditorSubsystem<UAssetEditorSubsystem>() : nullptr;
-    if (AssetEditorSubsystem) {
-        UPackage* AssetPackage  = nullptr;
-        TArray<UObject*> Assets = AssetEditorSubsystem->GetAllEditedAssets();
-        for (auto& Asset : Assets) {
-            IAssetEditorInstance* AssetEditor = AssetEditorSubsystem->FindEditorForAsset(Asset, false);
-            // FAssetEditorToolkit* Editor       = static_cast<FAssetEditorToolkit*>(AssetEditor);
-            TSharedPtr<SDockTab> Tab = AssetEditor->GetAssociatedTabManager()->GetOwnerTab();
-            if (Tab->GetParentWindow()->IsActive() && Tab->IsForeground()) {
-                AssetPackage = Asset->GetPackage();
-                break;
-            }
+    // Reshape Content Browser Window
+    TSharedPtr<SWindow> ContentBrowserWindow = nullptr;
+    TArray<TSharedRef<SWindow>> AllVisibleWindowsOrdered;
+    FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllVisibleWindowsOrdered);
+    for (auto Window : AllVisibleWindowsOrdered) {
+        if (Window->GetTitle().EqualTo(FText::FromString("Content Browser"))) {
+            ContentBrowserWindow = Window;
+            break;
         }
-
-        if (!AssetPackage) {
-            if (UWorld* World = GEditor->GetEditorWorldContext().World()) {
-                AssetPackage = World->GetPackage();
-            }
-        }
-
-        if (AssetPackage) {
-            UE_LOG(LogTemp, Warning, TEXT("Reload %s"), *AssetPackage->GetPathName());
-            TArray<UPackage*> PackagesToReload = {AssetPackage};
-            bool AnyPackagesReloaded           = false;
-            FText ErrorMessage;
-            UEditorLoadingAndSavingUtils::ReloadPackages(PackagesToReload, AnyPackagesReloaded, ErrorMessage, EReloadPackagesInteractionMode::Interactive);
-            if (ErrorMessage.ToString().Len() > 0) {
-                FMessageDialog::Open(EAppMsgType::Ok, ErrorMessage);
-            }
+    }
+    if (ContentBrowserWindow) {
+        FVector2D Position = IsHorizontal ? FVector2D::Zero() : FVector2D(0, AvailableDisplayHeight - BottomPanelHeight);
+        FVector2D Size     = IsHorizontal ? FVector2D(LeftPanelWidth, AvailableDisplayHeight) : FVector2D(DisplayWidth, BottomPanelHeight);
+        ContentBrowserWindow->ReshapeWindow(Position, Size);
+        TSharedRef<SWidget> Content = ContentBrowserWindow->GetContent();
+        if (SWidget* Result = FindWidget(Content, "SAssetView")) {
+            SAssetView& AssetView = static_cast<SAssetView&>(*Result);
+            AssetView.SetCurrentViewType(IsHorizontal ? EAssetViewType::List : EAssetViewType::Tile);
+            AssetView.SetCurrentThumbnailSize(IsHorizontal ? EThumbnailSize::Small : EThumbnailSize::Medium);
+            GetMutableDefault<UContentBrowserSettings>()->bShowAllFolder = false;
+            GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
         }
     }
 }
 
 void FAssistModule::SetCurrentLanguage(const FString Language) {
     UKismetInternationalizationLibrary::SetCurrentLanguage(Language);
+}
+
+SWidget* FAssistModule::FindWidget(TSharedRef<SWidget> Parent, FString TypeAsString) {
+    if (Parent->GetTypeAsString() == "SAssetView") {
+        return &Parent.Get();
+    }
+    for (int32 i = 0; i < Parent->GetChildren()->Num(); i++) {
+        SWidget* W = FindWidget(Parent->GetChildren()->GetChildAt(i), TypeAsString);
+        if (W) return W;
+    }
+    return nullptr;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -15,7 +15,9 @@ class FAssistModule : public IModuleInterface {
     FAssistConfig AssistConfig;
 
     void ReloadProject();
-    void SetHorizontalLayout();
-    void ReloadAsset();
+    void ReloadAsset(const FString AssetType);
+    void SetLayout(const bool IsHorizontal);
     void SetCurrentLanguage(const FString Language);
+
+    SWidget* FindWidget(TSharedRef<SWidget> Parent, FString TypeAsString);
 };
