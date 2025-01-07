@@ -19,5 +19,5 @@ class FAssistModule : public IModuleInterface {
     void SetLayout(const bool IsHorizontal);
     void SetCurrentLanguage(const FString Language);
 
-    SWidget* FindWidget(TSharedRef<SWidget> Parent, FString TypeAsString);
+    void FindWidget(TSharedRef<SWidget> Parent, FString TypeString, TSharedPtr<SWidget>& Result);
 };

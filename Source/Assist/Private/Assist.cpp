@@ -230,7 +230,9 @@ void FAssistModule::SetLayout(const bool IsHorizontal) {
         FVector2D Size     = IsHorizontal ? FVector2D(LeftPanelWidth, AvailableDisplayHeight) : FVector2D(DisplayWidth, BottomPanelHeight);
         ContentBrowserWindow->ReshapeWindow(Position, Size);
         TSharedRef<SWidget> Content = ContentBrowserWindow->GetContent();
-        if (SWidget* Result = FindWidget(Content, "SAssetView")) {
+        TSharedPtr<SWidget> Result  = nullptr;
+        FindWidget(Content, "SAssetView", Result);
+        if (Result) {
             SAssetView& AssetView = static_cast<SAssetView&>(*Result);
             AssetView.SetCurrentViewType(IsHorizontal ? EAssetViewType::List : EAssetViewType::Tile);
             AssetView.SetCurrentThumbnailSize(IsHorizontal ? EThumbnailSize::Small : EThumbnailSize::Medium);
@@ -244,15 +246,15 @@ void FAssistModule::SetCurrentLanguage(const FString Language) {
     UKismetInternationalizationLibrary::SetCurrentLanguage(Language);
 }
 
-SWidget* FAssistModule::FindWidget(TSharedRef<SWidget> Parent, FString TypeAsString) {
-    if (Parent->GetTypeAsString() == "SAssetView") {
-        return &Parent.Get();
+void FAssistModule::FindWidget(TSharedRef<SWidget> Parent, FString TypeString, TSharedPtr<SWidget>& Result) {
+    if (Parent->GetTypeAsString() == TypeString) {
+        Result = Parent;
+        return;
     }
     for (int32 i = 0; i < Parent->GetChildren()->Num(); i++) {
-        SWidget* W = FindWidget(Parent->GetChildren()->GetChildAt(i), TypeAsString);
-        if (W) return W;
+        FindWidget(Parent->GetChildren()->GetChildAt(i), TypeString, Result);
+        if (Result) return;
     }
-    return nullptr;
 }
 
 #undef LOCTEXT_NAMESPACE
